@@ -8,20 +8,20 @@ Decimal.set({ precision: 100 });
 
 const CONFIG = {
   raderAt: "ZJGD1",
-  coldDownTime: 4000 + Math.random() * 2000,
+  coldDownTime: 4000, // 4s
 };
 const RaderInfo = {
   ZJGD1: [120.089136, 30.302331], //东一教学楼
   ZJGX1: [120.085042, 30.30173], //西教学楼
   ZJGB1: [120.077135, 30.305142], //段永平教学楼
-  // YQ4: [120.122176,30.261555], //玉泉教四
-  // YQ1: [120.123853,30.262544], //玉泉教一
-  // YQ7: [120.120344,30.263907], //玉泉教七
-  // ZJ1: [120.126008,30.192908], //之江校区1
-  // HJC1: [120.195939,30.272068], //华家池校区1
-  // HJC2: [120.198193,30.270419], //华家池校区2
-  // ZJ2: [120.124267,30.19139], //之江校区2 // 之江校区半径都没500米
-  // YQSS: [120.124001,30.265735], //虽然大概不会有课在宿舍上但还是放一个点位
+  YQ4: [120.122176,30.261555], //玉泉教四
+  YQ1: [120.123853,30.262544], //玉泉教一
+  YQ7: [120.120344,30.263907], //玉泉教七
+  ZJ1: [120.126008,30.192908], //之江校区1
+  HJC1: [120.195939,30.272068], //华家池校区1
+  HJC2: [120.198193,30.270419], //华家池校区2
+  ZJ2: [120.124267,30.19139], //之江校区2 // 之江校区半径都没500米
+  YQSS: [120.124001,30.265735], //虽然大概不会有课在宿舍上但还是放一个点位
   ZJG4: [120.073427,30.299757], //紫金港大西区
 };
 // 说明: 在这里配置签到地点后，签到会优先【使用配置的地点】尝试
@@ -39,51 +39,6 @@ const sendBoth=(msg)=>{
   dingTalk(msg);
 }
 
-const CLASS_PERIODS = {
-  1: { start: "08:00", end: "09:35" },
-  2: { start: "10:00", end: "12:25" },
-  3: { start: "13:25", end: "15:50" },
-  4: { start: "16:15", end: "17:50" },
-  5: { start: "18:50", end: "21:15" },
-};
-
-// 辅助函数：将 "HH:MM" 转换为当天的分钟数 (0-1439)
-function getMinutesFromTime(timeStr) {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
-}
-
-// 核心逻辑：判断当前是否处于有课时间段 (包含课前5分钟)
-function isCourseTime() {
-  const now = new Date();
-  
-  // 获取今天是周几 (JS中 0是周日, 1-6是周一到周六。我们要转成 1-7 的习惯)
-  let dayOfWeek = now.getDay(); 
-  if (dayOfWeek === 0) dayOfWeek = 7; 
-
-  // 读取 .env 中的配置，例如 "1,2,4" -> ["1", "2", "4"]
-  const scheduleStr = process.env[`SCHEDULE_${dayOfWeek}`];
-  if (!scheduleStr) return false; // 今天没课配置
-
-  const todaySlots = scheduleStr.split(",").map(s => s.trim());
-  
-  // 获取当前时间的分钟数 (例如 8:00 = 480)
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-  for (const slotId of todaySlots) {
-    const period = CLASS_PERIODS[slotId];
-    if (!period) continue;
-
-    const startMin = getMinutesFromTime(period.start) - 5; // 提前5分钟开始
-    const endMin = getMinutesFromTime(period.end);
-
-    if (currentMinutes >= startMin && currentMinutes <= endMin) {
-      return true; // 在上课时间内
-    }
-  }
-  return false; // 不在任何上课时间内
-}
-
 
 const courses = new COURSES(
   new ZJUAM(process.env.ZJU_USERNAME, process.env.ZJU_PASSWORD)
@@ -97,21 +52,9 @@ let req_num = 0;
 
 let we_are_bruteforcing = [];
 
-let lastIsActive = false; // 记录上一次循环是否在“有课”状态
-
 // if (false)
 (async () => {
   while (true) {
-    const currentIsActive = isCourseTime();
-    if (currentIsActive && !lastIsActive) {
-      sendBoth(`[Auto Sign-in] The course is about to start.`);
-    }
-    lastIsActive = currentIsActive;
-    if (!isCourseTime()) {
-      await sleep(60000); 
-      continue;
-    }
-
     await courses
       .fetch("https://courses.zju.edu.cn/api/radar/rollcalls")
       .then((v) => v.text())
@@ -191,7 +134,7 @@ let lastIsActive = false; // 记录上一次循环是否在“有课”状态
               return;
             }
             // None of the above.
-            console.log(`[Auto Sign-in] Rollcall #${rollcallId} has an unknown type and we cannot handle it yet.`);
+            console.log(`[Auto Sign-in] Rollcall #${rollcallId} has an unknown type and we cannot handle it yet.`)
             console.log("[Auto Sign-in] Rollcall details: ", rollcall);
             console.log("[Auto Sign-in] If you see this message, please consider \x1b[31m submitting an issue with the rollcall details above \x1b[0m so that we can support this type in the future. Thank you!");
           });
